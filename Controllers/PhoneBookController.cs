@@ -16,8 +16,9 @@ namespace PhoneA.Controllers
         [HttpGet("{id}")]
         public ActionResult<Contact> GetContact(string id)
         {
-            if (PhoneBookService.Contacts.TryGetValue(id, out var contact))
+            if (PhoneBookService.Contacts.ContainsKey(id))
             {
+                Contact contact = PhoneBookService.Contacts[id];
                 return Ok(contact);
             }
             return NotFound();
@@ -26,18 +27,23 @@ namespace PhoneA.Controllers
         [HttpPost]
         public ActionResult<Contact> CreateContact(CreateContactDto dto)
         {
-            Contact contact = dto.Type switch
-            {
-                "Business" => new BusinessContact(),
-                _ => new PersonalContact()
-            };
+            Contact contact;
 
-            contact.Id = Guid.NewGuid().ToString();
+            if (dto.Type == "Business")
+            {
+                contact = new BusinessContact();
+            }
+            else
+            {
+                contact = new PersonalContact();
+            }
+
+            contact.Id = GenerateId(); 
             contact.Name = dto.Name;
             contact.PhoneNumber = dto.PhoneNumber;
 
             PhoneBookService.Contacts[contact.Id] = contact;
-            return CreatedAtAction(nameof(GetContact), new { id = contact.Id }, contact);
+            return Ok(contact); 
         }
 
         [HttpPut("{id}")]
@@ -48,7 +54,7 @@ namespace PhoneA.Controllers
                 return NotFound();
             }
 
-            var existing = PhoneBookService.Contacts[id];
+            Contact existing = PhoneBookService.Contacts[id];
             existing.Name = dto.Name;
             existing.PhoneNumber = dto.PhoneNumber;
 
@@ -58,11 +64,17 @@ namespace PhoneA.Controllers
         [HttpDelete("{id}")]
         public ActionResult DeleteContact(string id)
         {
-            if (PhoneBookService.Contacts.Remove(id))
+            if (PhoneBookService.Contacts.ContainsKey(id))
             {
+                PhoneBookService.Contacts.Remove(id);
                 return NoContent();
             }
             return NotFound();
+        }
+
+        private string GenerateId()
+        {
+            return DateTime.Now.Ticks.ToString();
         }
     }
 }
