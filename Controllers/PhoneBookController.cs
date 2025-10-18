@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
+using System.Collections.Generic;
 using PhoneA.Models;
 
 namespace PhoneA.Controllers
@@ -8,17 +9,14 @@ namespace PhoneA.Controllers
     public class PhoneBookController : ControllerBase
     {
         [HttpGet]
-        public ActionResult<IEnumerable<Contact>> GetContacts()
-        {
-            return Ok(PhoneBookService.Contacts.Values);
-        }
-
+        public ActionResult<List<Contact>> GetContacts() =>
+            Ok(new List<Contact>(PhoneBookService.Contacts.Values));
+        
         [HttpGet("{id}")]
         public ActionResult<Contact> GetContact(string id)
         {
-            if (PhoneBookService.Contacts.ContainsKey(id))
+            if (PhoneBookService.Contacts.TryGetValue(id, out var contact))
             {
-                Contact contact = PhoneBookService.Contacts[id];
                 return Ok(contact);
             }
             return NotFound();
@@ -28,7 +26,7 @@ namespace PhoneA.Controllers
         public ActionResult<Contact> CreateContact(CreateContactDto dto)
         {
             Contact contact;
-
+            
             if (dto.Type == "Business")
             {
                 contact = new BusinessContact();
@@ -38,23 +36,20 @@ namespace PhoneA.Controllers
                 contact = new PersonalContact();
             }
 
-            contact.Id = GenerateId(); 
+            contact.Id = GenerateId();
             contact.Name = dto.Name;
             contact.PhoneNumber = dto.PhoneNumber;
 
-            PhoneBookService.Contacts[contact.Id] = contact;
-            return Ok(contact); 
+            PhoneBookService.Contacts.Add(contact.Id, contact);
+            return CreatedAtAction(nameof(GetContact), new { id = contact.Id }, contact);
         }
 
         [HttpPut("{id}")]
-        public ActionResult UpdateContact(string id, CreateContactDto dto)
+        public IActionResult UpdateContact(string id, CreateContactDto dto)
         {
-            if (!PhoneBookService.Contacts.ContainsKey(id))
-            {
-                return NotFound();
-            }
+            if (!PhoneBookService.Contacts.ContainsKey(id)) return NotFound();
 
-            Contact existing = PhoneBookService.Contacts[id];
+            var existing = PhoneBookService.Contacts[id];
             existing.Name = dto.Name;
             existing.PhoneNumber = dto.PhoneNumber;
 
@@ -62,19 +57,15 @@ namespace PhoneA.Controllers
         }
 
         [HttpDelete("{id}")]
-        public ActionResult DeleteContact(string id)
+        public IActionResult DeleteContact(string id)
         {
-            if (PhoneBookService.Contacts.ContainsKey(id))
+            if (PhoneBookService.Contacts.Remove(id))
             {
-                PhoneBookService.Contacts.Remove(id);
                 return NoContent();
             }
             return NotFound();
         }
 
-        private string GenerateId()
-        {
-            return DateTime.Now.Ticks.ToString();
-        }
+        private string GenerateId() => DateTime.Now.Ticks.ToString();
     }
 }
